@@ -5,7 +5,7 @@ import re
 
 # ページの基本設定
 st.set_page_config(layout="wide")
-st.title("ClusterX - 競馬予想アプリ Ver.10.2")
+st.title("ClusterX - 競馬予想アプリ Ver.11.0")
 
 # --- UI/UX改善：カスタムCSSでフォントを変更 ---
 st.markdown("""
@@ -81,7 +81,7 @@ def run_step2_labeling(df):
 
 def highlight_marks(row, mark_column='印'):
     style_map = {"◎": ("#e06c75", "#ffffff"),"○": ("#61afef", "#ffffff"),"🔥": ("#d19a66", "#000000"),"☆": ("#98c379", "#000000"),"▲": ("#5c6370", "#ffffff"),"△": ("#c678dd", "#ffffff"), "✕": ("#282c34", "#c8c8c8")}
-    mark = row.get(mark_column, "") # .get()でエラーを回避
+    mark = row.get(mark_column, "")
     bg_color, font_color = style_map.get(mark, ("", ""))
     style = [f"background-color: {bg_color}" if bg_color else "", f"color: {font_color}" if font_color else ""]
     return ["; ".join(filter(None, style))] * len(row)
@@ -114,43 +114,25 @@ def display_rpt_evaluation(df, mark_col_name, rate_type="複勝率"):
     if df.empty:
         st.write("→ 該当馬なし")
         return
-
     rate_map = {"勝率": {"col1": "勝率_float", "col2": "勝率②_float", "rpt_suffix": "_勝率", "avg_header": "RPT平均勝率"},"連対率": {"col1": "連対率_float", "col2": "連対率②_float", "rpt_suffix": "_連対率", "avg_header": "RPT平均連対率"},"複勝率": {"col1": "複勝率_float", "col2": "複勝率②_float", "rpt_suffix": "_複勝率", "avg_header": "RPT平均複勝率"}}
     selected_map = rate_map.get(rate_type, rate_map["複勝率"])
     df_display = df.copy()
     rpt_cols = [f'RPT_{p}{selected_map["rpt_suffix"]}' for p in ["C人気", "BB順位", "単勝オッズ帯"]]
     if all(col in df_display.columns for col in rpt_cols):
         df_display[selected_map["avg_header"]] = df_display[rpt_cols].mean(axis=1)
-    else:
-        df_display[selected_map["avg_header"]] = 0
+    else: df_display[selected_map["avg_header"]] = 0
     if mark_col_name not in df_display.columns: df_display[mark_col_name] = ''
     if '印_馬柱' not in df_display.columns: df_display['印_馬柱'] = ''
-        
-    # ★★★ 列名変更のロジックを修正 ★★★
-    summary_cols = {
-        mark_col_name: mark_col_name, 
-        '印_馬柱': '印_馬柱', 
-        '馬番': '馬番', '馬名': '馬名',
-        f'{rate_type}①(出馬表)': selected_map["col1"],
-        f'{rate_type}②(ランク)': selected_map["col2"],
-        selected_map["avg_header"]: selected_map["avg_header"]
-    }
-    # 重複する列（mark_col_nameと'印_馬柱'が同じ場合）を削除
-    if mark_col_name == '印_馬柱':
-        summary_cols.pop('印_馬柱', None)
-        
+    summary_cols = {mark_col_name: mark_col_name, '印_馬柱': '印_馬柱', '馬番': '馬番', '馬名': '馬名',f'{rate_type}①(出馬表)': selected_map["col1"],f'{rate_type}②(ランク)': selected_map["col2"],selected_map["avg_header"]: selected_map["avg_header"]}
+    if mark_col_name == '印_馬柱': summary_cols.pop('印_馬柱', None)
     valid_cols_inv = {v: k for k, v in summary_cols.items()}
     display_col_order = [k for k,v in summary_cols.items() if v in df_display.columns]
-    
     summary_df = df_display[list(valid_cols_inv.keys())].rename(columns=valid_cols_inv)
     summary_df = summary_df[display_col_order]
-
     for col in summary_df.columns:
         if "率" in col: summary_df[col] = summary_df[col].map('{:.1%}'.format)
-    
     st.subheader("RPT評価サマリー")
     st.dataframe(summary_df.style.apply(highlight_marks, axis=1, mark_column=mark_col_name), use_container_width=True, hide_index=True)
-    
     st.markdown("##### 各馬のRPT詳細")
     for _, row in df_display.iterrows():
         expander_title = f"印：{row[mark_col_name]} (馬柱印：{row['印_馬柱']})　馬番：{row['馬番']}　馬名：{row['馬名']}"
@@ -164,7 +146,7 @@ loaded_data = load_data()
 if "rank_odds" in loaded_data: st.session_state["rank_odds_stats_df"] = loaded_data["rank_odds"]
 if "rpt" in loaded_data: st.session_state["rpt_stats_df"] = loaded_data["rpt"]
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["データ入力", "推奨馬", "期待値", "RPT評価【印】", "RPT評価【全馬】"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["データ入力", "推奨馬", "期待値", "RPT評価【印】", "RPT評価【全馬】", "まとめ"])
 
 with tab1:
     st.subheader("Step 1：データ入力")
@@ -173,7 +155,6 @@ with tab1:
         for key in keys_to_delete: del st.session_state[key]
         st.cache_data.clear()
         st.rerun()
-
     st.markdown("---")
     st.markdown("##### 1. 出馬表（Markdown形式）")
     user_input = st.text_area("C人気、BB順位を含む形式の出馬表を貼り付けてください", height=250, key="user_input_area", label_visibility="collapsed")
@@ -192,7 +173,6 @@ with tab1:
         except Exception as e:
             st.error(f"エラー: 出馬表の形式が正しくない可能性があります - {e}")
             st.session_state.raw_df = pd.DataFrame()
-
     if not st.session_state.raw_df.empty:
         st.markdown("---")
         st.markdown("##### 2. 馬柱分析印（任意）")
@@ -200,7 +180,6 @@ with tab1:
         df_for_edit = st.session_state.raw_df[['馬番', '馬名']].copy()
         if '印_馬柱' not in st.session_state.raw_df.columns: df_for_edit['印_馬柱'] = '-'
         edited_df = st.data_editor(df_for_edit, column_config={"印_馬柱": st.column_config.SelectboxColumn("馬柱印",options=PADDOCK_MARK_OPTIONS,required=True)}, hide_index=True, use_container_width=True, key="paddock_editor")
-        
         st.markdown("---")
         st.markdown("##### 3. 分析条件の設定と実行")
         race_info_text = st.session_state.get("race_info", "")
@@ -211,7 +190,6 @@ with tab1:
         c1, c2 = st.columns(2)
         with c1: selected_course = st.selectbox("分析に使用する競馬場データ:",RACECOURSE_OPTIONS, index=detected_index, key="course_selector")
         with c2: selected_rpt = st.selectbox("このレースのRPTパターンを選択:", list(range(1, 14)), 0, key="race_rpt_selector")
-
         if st.button("計算実行", type="primary", use_container_width=True):
             try:
                 base_df = st.session_state.raw_df.copy()
@@ -263,7 +241,6 @@ with tab2:
         st.subheader("推奨馬サマリー")
         if st.session_state.get("race_info"): st.info(st.session_state["race_info"])
         results_df = st.session_state["df_with_labels"][st.session_state["df_with_labels"]["印"] != ""].copy()
-        
         display_cols = {"印": "印", "馬柱印": "印_馬柱", "馬番": "馬番", "馬名": "馬名", "単勝": "単勝オッズ", "複勝": "複勝オッズ下限", "勝率②": "勝率②_float", "連対率②": "連対率②_float", "複勝率②": "複勝率②_float", "単勝期待値②": "単勝期待値②_float", "複勝期待値②": "複勝期待値②_float"}
         if not results_df.empty:
             display_df = results_df[list(display_cols.values())].copy(); display_df.columns = list(display_cols.keys())
@@ -281,7 +258,6 @@ with tab3:
     if "clusterx_df_final" in st.session_state:
         df_final = st.session_state["clusterx_df_final"].copy()
         if '印' not in df_final.columns: _, df_final = run_step2_labeling(df_final)
-        
         display_cols = {'印': '印', '馬柱印': '印_馬柱', '馬番': '馬番', '馬名': '馬名','単勝期待値①': '単勝期待値①_float', '複勝期待値①': '複勝期待値①_float','単勝期待値②': '単勝期待値②_float', '複勝期待値②': '複勝期待値②_float'}
         display_df = df_final[list(display_cols.values())].copy()
         display_df.columns = list(display_cols.keys())
@@ -324,3 +300,65 @@ with tab5:
         df_sorted_by_c_rank = df_final.sort_values('C人気')
         display_rpt_evaluation(df_sorted_by_c_rank, '印', selected_rate_tab5)
     else: st.info("タブ①で「計算実行」を押してください。")
+
+# ★★★ 新しい「まとめ」タブを追加 ★★★
+with tab6:
+    st.subheader("Step 6：最終まとめ")
+    st.info("「総合印」「期待値印」「馬柱印」を切り替えて、コピー用のテキストを生成します。")
+    if 'clusterx_df_final' in st.session_state:
+        df_final = st.session_state["clusterx_df_final"].copy()
+        
+        # --- 総合印のロジックをここで実行 ---
+        if '印' not in df_final.columns:
+            _, df_final = run_step2_labeling(df_final)
+        
+        def determine_overall_mark(row):
+            ev_mark = row['印']
+            paddock_mark = row['印_馬柱']
+            # ルール1：除外
+            if paddock_mark == '✕': return ''
+            # ルール2：絶対評価
+            if ev_mark == '◎': return '◎'
+            # ルール3：昇格
+            if paddock_mark == '◎' and ev_mark in ['○', '▲', '△', '']: return '◎'
+            if paddock_mark == '○' and ev_mark in ['▲', '△', '']: return '○'
+            # ルール4：降格
+            if paddock_mark == '▲' and ev_mark == '○': return '▲'
+            # ルール5：維持
+            return ev_mark
+        
+        df_final['総合印'] = df_final.apply(determine_overall_mark, axis=1)
+
+        # --- 表示ロジック ---
+        summary_options = ["総合印", "期待値印", "馬柱印"]
+        selected_summary = st.radio("表示する印を選択:", options=summary_options, index=0, horizontal=True, key="summary_selector")
+
+        output_text = ""
+        target_col = ""
+        if selected_summary == "総合印":
+            target_col = '総合印'
+            output_text += "最終まとめ（総合印）\n"
+        elif selected_summary == "期待値印":
+            target_col = '印'
+            output_text += "期待値印\n"
+        elif selected_summary == "馬柱印":
+            target_col = '印_馬柱'
+            output_text += "馬柱印\n"
+        
+        # テキスト生成
+        lines = []
+        if st.session_state.get("race_info"):
+            lines.append(st.session_state['race_info'])
+            
+        summary_order = [m for m in MARK_ORDER if m != '✕']
+        for mark in summary_order:
+            horses = df_final[df_final[target_col] == mark]
+            if not horses.empty:
+                horse_numbers = ", ".join(horses['馬番'].astype(str))
+                lines.append(f"{mark} {horse_numbers}")
+        
+        output_text = "\n".join(lines)
+        st.text_area("コピー用のテキスト", output_text, height=250)
+
+    else:
+        st.info("タブ①で「計算実行」を押してください。")
