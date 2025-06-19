@@ -5,7 +5,7 @@ import re
 
 # ページの基本設定
 st.set_page_config(layout="wide")
-st.title("ClusterX - 競馬予想アプリ Ver.11.0")
+st.title("ClusterX - 競馬予想アプリ")
 
 # --- UI/UX改善：カスタムCSSでフォントを変更 ---
 st.markdown("""
@@ -14,6 +14,12 @@ st.markdown("""
 html, body, [class*="st-"], [class*="css-"] {
    font-family: 'Noto Sans JP', sans-serif;
 }
+/* 見出しのサイズを調整 */
+h1 { font-size: 28px; }
+h2 { font-size: 24px; }
+h3 { font-size: 20px; }
+h4 { font-size: 18px; font-weight: 500; margin-top: 20px; margin-bottom: 10px; }
+h5 { font-size: 16px; font-weight: 500; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -131,7 +137,7 @@ def display_rpt_evaluation(df, mark_col_name, rate_type="複勝率"):
     summary_df = summary_df[display_col_order]
     for col in summary_df.columns:
         if "率" in col: summary_df[col] = summary_df[col].map('{:.1%}'.format)
-    st.subheader("RPT評価サマリー")
+    st.markdown("<h5>RPT評価サマリー</h5>", unsafe_allow_html=True)
     st.dataframe(summary_df.style.apply(highlight_marks, axis=1, mark_column=mark_col_name), use_container_width=True, hide_index=True)
     st.markdown("##### 各馬のRPT詳細")
     for _, row in df_display.iterrows():
@@ -149,7 +155,7 @@ if "rpt" in loaded_data: st.session_state["rpt_stats_df"] = loaded_data["rpt"]
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["データ入力", "推奨馬", "期待値", "RPT評価【印】", "RPT評価【全馬】", "まとめ"])
 
 with tab1:
-    st.subheader("Step 1：データ入力")
+    st.markdown("<h4>データ入力</h4>", unsafe_allow_html=True)
     if st.button("全データをリセット"):
         keys_to_delete = list(st.session_state.keys());
         for key in keys_to_delete: del st.session_state[key]
@@ -230,7 +236,7 @@ with tab1:
                 st.error(f"計算中にエラーが発生しました: {e}")
 
 with tab2:
-    st.subheader("Step 2：推奨馬（期待値ロジック）")
+    st.markdown("<h4>推奨馬（期待値ロジック）</h4>", unsafe_allow_html=True)
     if st.button("推奨馬を分類実行", key="run_button_tab2", use_container_width=True):
         if "clusterx_df_final" in st.session_state:
             df_final = st.session_state["clusterx_df_final"].copy()
@@ -238,7 +244,7 @@ with tab2:
             st.success("分類が完了しました。")
         else: st.warning("タブ①でデータ入力と計算実行を先に完了してください。")
     if "df_with_labels" in st.session_state:
-        st.subheader("推奨馬サマリー")
+        st.markdown("<h4>推奨馬サマリー</h4>", unsafe_allow_html=True)
         if st.session_state.get("race_info"): st.info(st.session_state["race_info"])
         results_df = st.session_state["df_with_labels"][st.session_state["df_with_labels"]["印"] != ""].copy()
         display_cols = {"印": "印", "馬柱印": "印_馬柱", "馬番": "馬番", "馬名": "馬名", "単勝": "単勝オッズ", "複勝": "複勝オッズ下限", "勝率②": "勝率②_float", "連対率②": "連対率②_float", "複勝率②": "複勝率②_float", "単勝期待値②": "単勝期待値②_float", "複勝期待値②": "複勝期待値②_float"}
@@ -253,7 +259,7 @@ with tab2:
     else: st.info("タブ①で計算実行後、このボタンを押すと推奨馬が表示されます。")
 
 with tab3:
-    st.subheader("Step 3：期待値一覧")
+    st.markdown("<h4>期待値一覧</h4>", unsafe_allow_html=True)
     st.info("全出走馬の期待値（①出馬表 / ②ランクオッズ）を一覧で確認できます。")
     if "clusterx_df_final" in st.session_state:
         df_final = st.session_state["clusterx_df_final"].copy()
@@ -268,7 +274,7 @@ with tab3:
         st.info("タブ①で「計算実行」を押してください。")
 
 with tab4:
-    st.subheader("Step 4：RPT評価【印付き馬】")
+    st.markdown("<h4>RPT評価【印付き馬】</h4>", unsafe_allow_html=True)
     rate_options = ["勝率", "連対率", "複勝率"]
     selected_rate_tab4 = st.radio("表示する指標を選択:", options=rate_options, index=2, horizontal=True, key="rate_selector_tab4")
     if "clusterx_df_final" in st.session_state:
@@ -290,7 +296,7 @@ with tab4:
     else: st.info("タブ①で「計算実行」を押してください。")
 
 with tab5:
-    st.subheader("Step 5：RPT評価【全馬】")
+    st.markdown("<h4>RPT評価【全馬】</h4>", unsafe_allow_html=True)
     rate_options_tab5 = ["勝率", "連対率", "複勝率"]
     selected_rate_tab5 = st.radio("表示する指標を選択:", options=rate_options_tab5, index=2, horizontal=True, key="rate_selector_tab5")
     st.info("全出走馬のRPT評価をC人気順に表示します。")
@@ -301,9 +307,8 @@ with tab5:
         display_rpt_evaluation(df_sorted_by_c_rank, '印', selected_rate_tab5)
     else: st.info("タブ①で「計算実行」を押してください。")
 
-# ★★★ 新しい「まとめ」タブを追加 ★★★
 with tab6:
-    st.subheader("Step 6：最終まとめ")
+    st.markdown("<h4>最終まとめ</h4>", unsafe_allow_html=True)
     st.info("「総合印」「期待値印」「馬柱印」を切り替えて、コピー用のテキストを生成します。")
     if 'clusterx_df_final' in st.session_state:
         df_final = st.session_state["clusterx_df_final"].copy()
